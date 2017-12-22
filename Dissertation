@@ -1,0 +1,604 @@
+Used 10 years worth of survey data, ~10,000 data points to analyze varying patterns in first- and non-first-generation student engagement and student learning outcomes 
+---
+title: "DissII"
+author: "Brian Wright"
+date: "May 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Developing summary statistics 
+
+```{r}
+str(nsse.4)
+summary(model3)
+summary(model6)
+library(psych)
+describe(as.numeric(nsse.4_nonfirstgen$gnwrite))
+describe(as.numeric(nsse.4_nonfirstgen$gnspeak))
+describe(as.numeric(nsse.4_nonfirstgen$gnquant))
+describe(as.numeric(nsse.4_nonfirstgen$gnanaly))
+head(firstgenenvtim2)
+str(firstgenenvtim2)
+table(nsse.4_nonfirstgen$gnwrite)
+table(nsse.4_nonfirstgen$gnspeak)
+table(nsse.4_nonfirstgen$gnquant)
+table(nsse.4_nonfirstgen$gnanaly)
+str(nsse.4)
+#Redeveloped the composite scores for SE and Performance measures
+envsocalc <- (((as.numeric(nsse.4$envsocal)-1)/3)*100)
+envsuprtc <- (((as.numeric(nsse.4$envsuprt)-1)/3)*100)
+envnacadc <- (((as.numeric(nsse.4$envnacad)-1)/3)*100)
+envstudc <- (((as.numeric(nsse.4$envsuprt)-1)/6)*100)
+envfacc <- (((as.numeric(nsse.4$envfac)-1)/6)*100)
+envadmc <- (((as.numeric(nsse.4$envadm)-1)/6)*100)
+nsse.4$SCE <- ((envsocalc+envsuprtc+envnacadc+envstudc+envfacc+envadmc)/6)
+str(nsse.4)
+#Composite score for Performance Measures
+gnwritec <- (((as.numeric(nsse.4$gnwrite)-1)/3)*100)
+gnquantc <- (((as.numeric(nsse.4$gnquant)-1)/3)*100)
+gnanalyc <- (((as.numeric(nsse.4$gnanaly)-1)/3)*100)
+gnspeakc <- (((as.numeric(nsse.4$gnspeak)-1)/3)*100)
+#Combining workon and workof and creating a factor variable then adding it back into our data.frame
+work <- as.numeric(nsse.4$workof01)+as.numeric(nsse.4$workon01)
+head(work)
+nsse.4$work1 <- cut(as.numeric(work),breaks = c(1,2,3,4,5,6,7,8,16), labels = c("1","2","3","4","5","6","7","8"))
+head(work1, 20)
+str(nsse.4)
+#Double check and make sure the composite outcomes measure has a normal distribution 
+head(gnspeakc)
+hist(nsse.4$outcomes)
+qqnorm(nsse.4$outcomes)
+qqline(nsse.4$outcomes, col=2)
+library(e1071)
+kurtosis(nsse.4$outcomes)
+#Between -2 and +2 is fine 
+skewness(nsse.4$outcomes)
+#Skewness is between -.5 and .5 considered to be approximately symmetric 
+#references:https://brownmath.com/stat/shape.htm#SkewnessInterpret
+hist(nsse.4$SCE)
+#Seems to be fine, so went ahead and added it to my data.frame
+nsse.4$outcomes <- ((gnwritec+gnquantc+gnanalyc+gnspeakc)/4)
+str(nsse.4)
+#More summary stats for the independent variables 
+describe(nsse.4_nonfirstgen$outcomes)
+table(nsse.4$parentsed)
+table(nsse.4_nonfirstgen$acadpr01)
+table(nsse.4_nonfirstgen$cocurr01)
+describe(as.numeric(nsse.4_nonfirstgen$acadpr01))
+table(nsse.4_nonfirstgen$enter)
+table(nsse.4_nonfirstgen$enrlment)
+table(nsse.4_nonfirstgen$internat)
+table(nsse.4_nonfirstgen$livenow)
+describe(as.numeric(nsse.4_nonfirstgen$livenow))
+table(nsse.4_nonfirstgen$race05)
+table(nsse.4_nonfirstgen$sex)
+table(nsse.4_nonfirstgen$social01.social05)
+describe(as.numeric(nsse.4_nonfirstgen$social01.social05))
+table(nsse.4_nonfirstgen$work1)
+describe(as.numeric(nsse.4_nonfirstgen$work1))
+library(doBy)
+fst_per_yr <- data.frame(table(nsse.4_firstgen$NSSEYear))
+fst_per_yr
+fix(fst_per_yr)
+str(fst_per_yr)
+library(ggplot2)
+qplot(fst_per_yr, geom = "histogram")
+table(nsse.4$NSSEYear)
+describe(fst_per_yr)
+summary(fst_per_yr$Freq)
+getwd()
+```
+Descipitive for First Gen, adjusted for new quartile variables 
+```{r}
+describe(as.numeric(nsse.4_firstgen$gnwrite))
+table(nsse.4_firstgen$gnwrite)
+describe(as.numeric(nsse.4_firstgen$gnspeak))
+table(nsse.4_firstgen$gnspeak)
+describe(as.numeric(nsse.4_firstgen$gnquant))
+table(nsse.4_firstgen$gnquant)
+describe(as.numeric(nsse.4_firstgen$gnanaly))
+table(nsse.4_firstgen$gnanaly)
+describe(nsse.4_firstgen$outcomes)
+table(nsse.4_firstgen$acadq)
+table(nsse.4_firstgen$cocurr01)
+describe(as.numeric(nsse.4_firstgen$cocurr01))
+
+table(nsse.4_firstgen$enter)
+table(nsse.4_firstgen$enrlment)
+table(nsse.4_firstgen$internat)
+table(nsse.4_firstgen$livenow)
+describe(as.numeric(nsse.4_firstgen$livenow))
+table(nsse.4_firstgen$race05)
+table(nsse.4_firstgen$sex)
+table(nsse.4_firstgen$social01.social05)
+describe(as.numeric(nsse.4_firstgen$social01.social05))
+table(nsse.4_firstgen$work1)
+describe(as.numeric(nsse.4_nonfirstgen$work1))
+describe(nsse.4_firstgen$SCE)
+describe(nsse.4_nonfirstgen$SCE)
+```
+Next we need to test for normality and multicollinearity 
+```{r}
+library(car)
+library(e1071)
+l.stacked.list <- stack(list(g1=nsse.4_firstgen$SCE, g2=nsse.4_nonfirstgen$SCE))
+head(l.stacked.list)
+str(l.stacked.list)
+#equal variances assumptions 
+leveneTest(values~ind, l.stacked.list)
+#normality
+hist(nsse.4_firstgen$SCE)
+hist(nsse.4_nonfirstgen$SCE)
+skewness(nsse.4_nonfirstgen$SCE)
+skewness(nsse.4_firstgen$SCE)
+
+```
+
+Let's do some correlation testing and graphing
+
+```{r}
+cordatac2 <- data.frame(nsse.5_firstgen$outcomes,nsse.5_firstgen$acadpr01,nsse.5_firstgen$work1,nsse.5_firstgen$cocurr01,nsse.5_firstgen$social01.social05,nsse.5_firstgen$commute,nsse.5_firstgen$internat,nsse.5_firstgen$enter,nsse.5_firstgen$livenow,nsse.5_firstgen$enrlment,nsse.5_firstgen$race05,nsse.5_firstgen$SCE,nsse.5_firstgen$NSSEYear)
+
+
+cordatac3 <- data.frame(nsse.5_nonfirstgen$outcomes,nsse.5_nonfirstgen$acadpr01,nsse.5_nonfirstgen$work1,nsse.5_nonfirstgen$cocurr01,nsse.5_nonfirstgen$social01.social05,nsse.5_nonfirstgen$commute,nsse.5_nonfirstgen$internat,nsse.5_nonfirstgen$enter,nsse.5_nonfirstgen$livenow,nsse.5_nonfirstgen$enrlment,nsse.5_nonfirstgen$race05,nsse.5_nonfirstgen$SCE,nsse.5_nonfirstgen$NSSEYear)
+
+str(cordatac2)
+#Now we want to make all our factors numeric for correlation purposes
+cordatac2 <- data.frame(lapply(cordatac2, as.numeric))
+cordatac3 <- data.frame(lapply(cordatac3, as.numeric))
+
+as.dist(cor(cordatac2))
+cordatac3 <- cor(cordatac2, method = "pearson")
+cordatac3
+cordata4 <- cor(cordatac3, method = "pearson")
+cordata4
+
+library(corrplot)
+corrplot(cordatac3, method = "number", type = "lower", tl.col = "black", tl.srt = 45)
+
+
+
+```
+
+
+Filling in the missing data
+```{r, eval=FALSE}
+library(mice)
+#Provides the pattern of missing data
+md.pattern(nsse)
+#Plot of the missing
+aggr_plot <- aggr(nsse, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,labels=names(nsse), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+#Total Count
+?countNA
+library(sfsmisc)
+na.count(nsse)
+#After removing spirit related variable the total NA is fairly small at 499 or out of 237,048 data points, .2% are missing. As a result we will use the mice package to impute the missing data using polytomous regression or mulinominal logistic regression as is approapriate for categorical data imputation.
+str(nsse)
+#Using predictive mean matching for missing values
+nsse.1 <- mice(nsse, m=5, maxit = 5, method = "pmm")
+summary(nsse.1)
+#We can then pull the new data back out of the package and then we have no missing values
+nsse.2 <- complete(nsse.1,1)
+library(epifit)
+countNA(nsse.2)
+
+```
+
+
+Ok let's run the model and see what we can find
+```{r}
+
+str(nsse.3$race05)
+nsse.4$race <- nsse.3$race05
+#recode race value to make white, which is 4, 1, and 1 which is american indian 4 for the regression equation. First going to add variable labels. 
+nsse.4$race <-factor(nsse.4$race, levels = c(1,2,3,4,5,6,7,8,9,10), labels=c("American Indian", "Asian","Black","White","Mexican","Puerto Rican","Other Hispanic","Multiracial","Other","Prefer not to respond"))
+str(nsse.4$race)
+library(forcats)
+#Ok finally figured out how to collapse factor variables easily thanks to the forcats package!
+nsse.4$race <-nsse.4$race%>%fct_collapse(Hispanic = c("Mexican","Puerto Rican","Other Hispanic"), Other = c("Multiracial", "Asian","Other","Prefer not to respond","American Indian"))
+str(nsse.4)
+table(nsse.4$race)
+#So when I ran the regression this didn't actually work, I need to relevel the factor variable using relevel()
+nsse.4 <- within(nsse.4, race <- relevel(race, ref = "White"))
+#ok I think that worked
+str(nsse.4)
+nsse.outcomes.model1 <- lm(outcomes ~ parentsed +acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter+race, data = nsse.4)
+summary(nsse.outcomes.model1)
+nsse.5 <- lapply(nsse.4, FUN = as.numeric)
+nsse.5 <- lapply(nsse.5, FUN = scale)
+str(nsse.5)
+nsse.outcomes.model2 <- lm(outcomes ~ as.factor(parentsed) +as.factor(acadpr01)+as.factor(work1)+as.factor(cocurr01)+as.factor(social01.social05)+as.factor(sex)+as.factor(internat)+ as.factor(enrlment)+SCE+as.factor(livenow)+as.factor(enter)+as.factor(race),data = nsse.5)
+summary(nsse.outcomes.model2)
+
+nsse.outcomes.model3 <- lm(outcomes ~ parentsed +acadpr01+cocurr01+SCE+livenow+enter, data = nsse.4)
+summary(nsse.outcomes.model3)
+nsse.outcomes.model4 <- lm(outcomes ~ as.factor(parentsed) +as.factor(acadpr01)+as.factor(cocurr01)+SCE+as.factor(livenow)+as.factor(enter), data = nsse.5)
+summary(nsse.outcomes.model4)
+vif(nsse.outcomes.model1)
+#residual plots
+resid.nsse.model1 <- resid(nsse.outcomes.model1)
+plot(resid.nsse.model1)
+abline(0,0)
+ncvTest(nsse.outcomes.model1)
+qqplot(nsse.outcomes.model1)
+abline
+hist(nsse.outcomes.model1$residuals)
+#Trying to figure out the Wald.Test....start heref
+library(aod)
+#Run a Wald.test on each of the 39 predictor variables to determing which are meaningful 
+wt <- wald.test(b=coef(nsse.outcomes.model1),Sigma = vcov(nsse.outcomes.model1), Terms=34)
+print.wald.test(wt)
+summary(wt)
+wt$result
+#We need to also model each of the outcomes individually to see if the relationships vary
+nsse.outcomes.model5 <- lm(cbind(gnwrite,gnanaly,gnquant,gnspeak)~parentsed +acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter, data = nsse.4)
+summary(nsse.outcomes.model5)
+
+nsse.outcomes.model8 <- lm(cbind(gnwrite,gnanaly,gnquant,gnspeak)~acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter, data = nsse.4_firstgen)
+summary(nsse.outcomes.model8)
+
+nsse.outcomes.model9 <- lm(cbind(gnwrite,gnanaly,gnquant,gnspeak)~acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model9)
+
+#Splitting out the campus environment indicator
+nsse.outcomes.model10 <- lm(outcomes~acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+livenow+enter+envsuprt+envstu+envfac+envsocal+envnacad+envadm, data = nsse.4_firstgen)
+summary(nsse.outcomes.model10)
+
+nsse.outcomes.model11 <- lm(outcomes~acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+livenow+enter+envsuprt+envstu+envfac+envsocal+envnacad+envadm, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model11)
+str(nsse.4_firstgen)
+
+```
+Let's split our new data.frame again
+```{r}
+#Split our data.frame
+nsse.4.split_gen <- split.data.frame(nsse.4,parentsed)
+#Re-index the data.frame for first gen
+nsse.4_firstgen <- data.frame(nsse.4.split_gen$`1`)
+#Re-index the data.frame for non-first gen
+nsse.4_nonfirstgen <- data.frame(nsse.4.split_gen$`0`)
+str(nsse.4_firstgen)
+str(nsse.4_nonfirstgen)
+
+describe(nsse.4_firstgen$outcomes)
+describe(nsse.4_nonfirstgen$outcomes)
+#The run the models and see if there are differences 
+nsse.outcomes.model6 <- lm(outcomes ~ acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter+race, data = nsse.4_firstgen)
+summary(nsse.outcomes.model6)
+nsse.outcomes.model7 <- lm(outcomes ~ acadpr01+work1+cocurr01+social01.social05+sex+internat+ enrlment+SCE+livenow+enter+race, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model7)
+table(nsse.4_firstgen$envadm)
+table(nsse.4_nonfirstgen$envadm)
+median(as.numeric(nsse.4_firstgen$envadm))
+
+
+```
+
+
+
+Old code I lost....below
+```{r, eval=FALSE}
+library(dplyr)
+library(doBy)
+library(ggplot2)
+first.nonfirstgroup <- group_by(nsse.4, parentsed)
+first.nonfirstgroup.1 <- summaryBy(SCE~parentsed, data=nsse.4)
+first.nonfirstgroup.1
+#The below t.test is designed to support one grouping dichotomous and one numeric/continous variable
+describe(nsse.4$SCE)
+t.test(nsse.4$SCE~nsse.4$parentsed)
+#No real differences in how first generation versus non-first generation percieve the environment 
+t.test(nsse.4$outcomes~nsse.4$parentsed)
+#Generate t0test for each of the indiv
+
+#Seems there is not a significant difference between the two groups in terms of perception of supportive environments, however let's use annova to compare the values on a per year basis
+envtime <- nsse.4 %>%
+  group_by(NSSEYear)%>%
+  summarise(mean_envir=mean(SCE))
+envtime
+#Below is the plot need to make it prettier
+plot(envtime$NSSEYear,envtime$mean_envir,type="p", ylab = "Supportive Envrion BM", xlab = "Year", ylim=range(envtime$mean_envir))
+lines(envtime$NSSEYear[order(envtime$NSSEYear)],envtime$mean_envir[order(envtime$NSSEYear)])
+str(envtime)
+head(nsse.4$envrspt, 100)
+var(nsse.4$envrspt)
+g <-  ggplot(envtime,aes(x=NSSEYear,y=mean_envir,group=1))+geom_point()+geom_line()+xlab("Year") + ylab("Supportive Environment")
+g
+#Split the data.frame to look more closely at the non versue first generation and create dataframe
+require(plyr)
+#Better understand which variables contribute to the overall significance
+summary(manova(model9))
+fit1 <- aov(SCE~NSSEYear, data = nsse.4)
+fit1
+
+summary(fit1)
+summary.lm(fit1)
+#Post Hoc
+TukeyHSD(fit1)
+summaryBy(nsse.4$SCE~nsse.4$NSSEYear, data = nsse.4)
+
+
+sig.values <- data.frame(if(TukeyHSD(fit$)))
+#It seems significant changes can be seen especially from 2010 and 2011
+fit2 <- aov(SCE~NSSEYear*parentsed, data = nsse.4)
+summary(fit2)
+TukeyHSD(fit2)
+library(multcomp)
+summary(glht(fit1))
+#Overall the increase seen was significant over the period of time study, however, the differences in non versus first generation made no impact on the level of significant change.
+
+```
+Comparing individual Benchmark Variables via chisquate and t-test
+```{r}
+chisquare_envsuprt <- chisq.test(nsse.4$envsuprt,nsse.4$parentsed)
+chisquare_envsuprt$observed
+chisquare_envsuprt$expected
+chisquare_envsuprt
+summary(chisquare_envsuprt)
+chisquare_envsocal <- chisq.test(nsse.4$envsocal,nsse.4$parentsed)
+chisquare_envsocal
+chisquare_envacad <- chisq.test(nsse.4$envnacad,nsse.4$parentsed)
+chisquare_envacad
+chisquare_envstu <- chisq.test(nsse.4$envstu,nsse.4$parentsed)
+chisquare_envstu
+
+chisquare_envstu$observed
+chisquare_envstu$expected
+chisquare_envnacad <- chisq.test(nsse.4$envnacad,nsse.4$parentsed)
+chisquare_envnacad
+chisquare_envfac <- chisq.test(nsse.4$envfac,nsse.4$parentsed)
+chisquare_envfac
+chisquare_envadm <- chisq.test(nsse.4$envadm,nsse.4$parentsed)
+chisquare_envadm
+summaryBy(nsse.4$envsocal~nsse.4$parentsed, data = nsse.4)
+summaryBy(nsse.4$envstu~nsse.4$parentsed, data = nsse.4)
+summaryBy(nsse.4$envsuprt~nsse.4$parentsed, data = nsse.4)
+summaryBy(nsse.4$envnacad~nsse.4$parentsed, data = nsse.4)
+summaryBy(nsse.4$envfac~nsse.4$parentsed, data = nsse.4)
+summaryBy(nsse.4$envadm~nsse.4$parentsed, data = nsse.4)
+#Need to do individual t-test versus chi-square to see if differences are present, fairly consistent results with envsocal and envstu showing significant differences, also faculty but to a lesser extent and well above the bonferoni adjustment of .008  
+t.test(as.numeric(nsse.4$envsuprt)~as.numeric(nsse.4$parentsed))
+t.test(as.numeric(nsse.4$envsocal)~as.numeric(nsse.4$parentsed))
+t.test(as.numeric(nsse.4$envnacad)~as.numeric(nsse.4$parentsed))
+t.test(as.numeric(nsse.4$envfac)~as.numeric(nsse.4$parentsed))
+t.test(as.numeric(nsse.4$envstu)~as.numeric(nsse.4$parentsed))
+t.test(as.numeric(nsse.4$envadm)~as.numeric(nsse.4$parentsed))
+
+
+```
+Created a model but we are going to try block regression and then note the changes in the R-squared level, also going to add dummy variables for the year and develop quartiles for the larger factor variables to make them easier to use. 
+```{r}
+#First lets reformate the year variables to allow for the dummy 
+str(nsse.4)
+#Actually nevermind, already done, will just add to the regression model
+#Do need to collapse the longer variables into quartiles...start with academic preparation, acadpr01
+quantile(as.numeric(nsse.4$acadpr01))
+#based on the output looks like 0=1,2,3, 1=4, 2=5, 3=6,7,8
+#so now we need to collapse the variable, lets test it before we add it to our dataset 
+library(forcats)
+library(car)
+table(nsse.4$acadpr01)
+quantile(as.numeric(nsse.4$acadpr01))
+boxplot(as.numeric(nsse.4$acadpr01))
+test.collapse.acad <- cut(as.numeric(nsse.4$acadpr01), breaks = c(0,3,4,5,Inf),labels = c(0,1,2,3))
+table(test.collapse.acad)
+#Ok after some work we final got this to come out correct. 
+#so now we can add it to our dataset 
+nsse.4$acadq <- cut(as.numeric(nsse.4$acadpr01), breaks = c(0,3,4,5,Inf),labels = c(0,1,2,3))
+#Add use the same process for the rest of our larger factor variables, starting with co-curricular activities (concurr01)
+table(nsse.4$cocurr01)
+quantile(as.numeric(nsse.4$cocurr01))
+Boxplot(as.numeric(nsse.4$cocurr01))
+#Looks like a lot of low responses
+nsse.4$cocurrq <- cut(as.numeric(nsse.4$cocurr01), breaks = c(0,1,2,3,Inf),labels = c(0,1,2,3))
+table(nsse.4$cocurrq)
+#Hours on social activities
+table(nsse.4$social01.social05)
+quantile(as.numeric(nsse.4$social01.social05))
+Boxplot(as.numeric(nsse.4$social01.social05))
+#Looks like a lot of low responses
+nsse.4$socialq <- cut(as.numeric(nsse.4$social01.social05), breaks = c(0,2,3,4,Inf),labels = c(0,1,2,3))
+table(nsse.4$socialq)
+#Number of working hours 
+table(nsse.4$work1)
+quantile(as.numeric(nsse.4$work1))
+Boxplot(as.numeric(nsse.4$work1))
+nsse.4$workq<- cut(as.numeric(nsse.4$work1), breaks = c(0,1,4,6,Inf),labels = c(0,1,2,3))
+table(nsse.4$work1)
+#Where students live, collapsed 
+table(nsse.4$livenow)
+quantile(as.numeric(nsse.4$livenow))
+Boxplot(as.numeric(nsse.4$livenow))
+nsse.4$liveq<- cut(as.numeric(nsse.4$livenow), breaks = c(0,2,3,Inf),labels = c(0,1,2))
+table(nsse.4$liveq)
+str(nsse.4)
+```
+New descriptive stats
+```{r}
+table(nsse.4_firstgen$acadq)
+table(nsse.4_firstgen$cocurrq)
+table(nsse.4_firstgen$liveq)
+table(nsse.4_firstgen$socialq)
+table(nsse.4_firstgen$work1)
+#now for the non first generation
+table(nsse.4_nonfirstgen$acadq)
+table(nsse.4_nonfirstgen$cocurrq)
+table(nsse.4_nonfirstgen$liveq)
+table(nsse.4_nonfirstgen$socialq)
+table(nsse.4_nonfirstgen$work1)
+
+```
+New block entry method, start with just basic demographics, include NSSE items, end with environmental
+```{r}
+nsse.outcomes.model12 <- lm(outcomes~sex+internat+enrlment+enter+race+NSSEYear, data = nsse.4_firstgen)
+summary(nsse.outcomes.model12)
+nsse.outcomes.model13 <- lm(outcomes~sex+internat+enrlment+enter+race+NSSEY, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model13)
+str(nsse.4_firstgen)
+#Doesn't look like much variance is account for...going to standardize the values
+nsse.5_firstgen <- lapply(nsse.4_firstgen, FUN = as.numeric)
+nsse.5_firstgen <- data.frame(lapply(nsse.5_firstgen, FUN = scale))
+str(nsse.5_firstgen)
+#Race needs to be re-leveled
+nsse.4_nonfirstgen <- within(nsse.4_nonfirstgen, race <- relevel(race, ref = "White"))
+nsse.4_firstgen <- within(nsse.4_firstgen, race <- relevel(race, ref = "White"))
+#Ok now rerun the analysis
+nsse.outcomes.model14 <- lm(outcomes~sex+internat+enrlment+enter+race+NSSEYear, data = nsse.4_firstgen)
+summary(nsse.outcomes.model14)
+nsse.outcomes.model15 <- lm(outcomes~sex+internat+enrlment+enter+race+NSSEYear, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model15)
+
+str(nsse.4_firstgen$NSSEYear)
+#Add NSSE variables other than Environment 
+nsse.outcomes.model16 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+ sex+internat+enrlment+enter+race+NSSEYear, data = nsse.4_firstgen)
+summary(nsse.outcomes.model16)
+
+library(broom)
+tidy_model16 <- tidy(nsse.outcomes.model16)
+write.csv(tidy_model16, "tidy_model16.csv")
+
+nsse.outcomes.model17 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+ sex+internat+enrlment+enter+race+NSSEYear, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model17)
+
+tidy_model17 <- tidy(nsse.outcomes.model17)
+write.csv(tidy_model17, "tidy_model17.csv")
+
+test.z <- data.frame(nsse.outcomes.model17$coefficients)
+View(test.z)
+#Try to run tidy to get a file to copy
+
+
+
+#Add the supportive campus benchmark to the mix 
+nsse.outcomes.model18 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+sex+internat+enrlment+enter+race+NSSEYear+SCE, data = nsse.4_firstgen)
+summary(nsse.outcomes.model18)
+#exports results to a excel table
+tidy_model18 <- tidy(nsse.outcomes.model18)
+write.csv(tidy_model18, "tidy_model17.csv")
+
+
+nsse.outcomes.model19 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+ sex+internat+enrlment+enter+race+NSSEYear+SCE, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model19)
+
+tidy_model19 <- tidy(nsse.outcomes.model19)
+write.csv(tidy_model19, "tidy_model17.csv")
+
+
+#Really big jump in the r-squared, ok lastly we are going to break out the individual sce variables, but we need to break them into quantiles as well...yeah! Constructed the quantiles separately for the datasets that are split by generation 
+table(nsse.4$envfac)
+quantile(as.numeric(nsse.4$envstu))
+boxplot(as.numeric(nsse.4$envstu))
+nsse.4_nonfirstgen$envstuq <- cut(as.numeric(nsse.4_nonfirstgen$envstu), breaks = c(0,5,6,7,Inf),labels = c(0,1,2,3))
+table(nsse.4_nonfirstgen$envstuq)
+nsse.4_firstgen$envstuq <- cut(as.numeric(nsse.4_firstgen$envstu), breaks = c(0,5,6,7,Inf),labels = c(0,1,2,3))
+nsse.4_nonfirstgen$envfacq <- cut(as.numeric(nsse.4_nonfirstgen$envfac), breaks = c(0,4,5,6,Inf),labels = c(0,1,2,3))
+nsse.4_firstgen$envfacq <- cut(as.numeric(nsse.4_firstgen$envfac), breaks = c(0,4,5,6,Inf),labels = c(0,1,2,3))
+
+nsse.4_firstgen$envadmq <- cut(as.numeric(nsse.4_firstgen$envadm), breaks = c(0,3,4,5,Inf),labels = c(0,1,2,3))
+
+nsse.4_nonfirstgen$envadmq <- cut(as.numeric(nsse.4_nonfirstgen$envadm), breaks = c(0,3,4,5,Inf),labels = c(0,1,2,3))
+#Ok now rerun the full model except with the SCE split out
+nsse.outcomes.model20 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+ sex+internat+enrlment+enter+race+NSSEYear+envsuprt+envsocal+envnacad+envstuq+envfacq+envadmq, data = nsse.4_nonfirstgen)
+summary(nsse.outcomes.model20)
+
+tidy_model20 <- tidy(nsse.outcomes.model20)
+write.csv(tidy_model20, "tidy_model20.csv")
+
+test.x <- data.frame(nsse.outcomes.model20$coefficients)
+View(test.x)
+#Now for first generation 
+nsse.outcomes.model21 <- lm(outcomes~acadq+cocurrq+workq+liveq+socialq+ sex+internat+enrlment+enter+race+NSSEYear+envsuprt+envsocal+envnacad+envstuq+envfacq+envadmq, data = nsse.4_firstgen)
+summary(nsse.outcomes.model21)
+
+tidy_model21 <- tidy(nsse.outcomes.model21)
+write.csv(tidy_model21, "tidy_model21.csv")
+
+
+
+```
+Going to standardize the variables and re-run the regression tables, ok so now I don't need the standardized variables. 
+```{r}
+nsse.5_firstgen <- lapply(nsse.4_firstgen, FUN = as.numeric)
+nsse.5_firstgen <- data.frame(lapply(nsse.5_firstgen, FUN = scale))
+str(nsse.5_firstgen)
+
+nsse.outcomes.model22 <-lm(outcomes~as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear), data = nsse.5_firstgen)
+summary(nsse.outcomes.model22)
+
+tidy_model22 <- tidy(nsse.outcomes.model22)
+write.csv(tidy_model22, "tidy_model21.csv")
+
+nsse.5_nonfirstgen <- lapply(nsse.4_nonfirstgen, FUN = as.numeric)
+nsse.5_nonfirstgen <- data.frame(lapply(nsse.5_nonfirstgen, FUN = scale))
+str(nsse.5_nonfirstgen)
+
+nsse.outcomes.model23 <-lm(outcomes~as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear), data = nsse.5_nonfirstgen)
+
+summary(nsse.outcomes.model23)
+
+tidy_model23 <- tidy(nsse.outcomes.model23)
+write.csv(tidy_model23, "tidy_model21.csv")
+#Ok now add all the NSSE items except for SCE
+
+nsse.outcomes.model24 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear), data = nsse.5_firstgen)
+
+tidy_model24 <- tidy(nsse.outcomes.model24)
+write.csv(tidy_model24, "tidy_model21.csv")
+
+
+nsse.outcomes.model25 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear), data = nsse.5_nonfirstgen)
+
+tidy_model25 <- tidy(nsse.outcomes.model25)
+write.csv(tidy_model25, "tidy_model21.csv")
+#Now to include the SCE benchmark
+nsse.outcomes.model26 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear)+SCE, data = nsse.5_firstgen)
+summary(nsse.outcomes.model26)
+
+
+tidy_model26 <- tidy(nsse.outcomes.model26)
+write.csv(tidy_model26, "tidy_model26.csv")
+
+
+nsse.outcomes.model27 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear)+SCE, data = nsse.5_nonfirstgen)
+summary(nsse.outcomes.model27)
+
+library(broom)
+
+library(tidyxl)
+tidy_model27 <- tidy(nsse.outcomes.model27)
+write.csv(tidy_model27, "tidy_model27.csv")
+#Now for the disaggregated SCE variable 
+
+nsse.outcomes.model28 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear)+as.factor(envsuprt)+as.factor(envsocal)+as.factor(envnacad)+as.factor(envstuq)+as.factor(envfacq)+as.factor(envadmq), data = nsse.5_nonfirstgen)
+
+tidy_model28 <- tidy(nsse.outcomes.model28)
+write.csv(tidy_model28, "tidy_model28.csv")
+
+nsse.outcomes.model29 <-lm(outcomes~as.factor(acadq)+as.factor(cocurrq)+as.factor(workq)+as.factor(liveq)+as.factor(socialq)+as.factor(sex)+as.factor(internat)+as.factor(enrlment)+as.factor(enter)+as.factor(race)+as.factor(NSSEYear)+as.factor(envsuprt)+as.factor(envsocal)+as.factor(envnacad)+as.factor(envstuq)+as.factor(envfacq)+as.factor(envadmq), data = nsse.5_firstgen)
+summary(nsse.outcomes.model29)
+
+tidy_model29 <- tidy(nsse.outcomes.model29)
+write.csv(tidy_model29, "tidy_model29.csv")
+
+```
+
+Standard Deviations for Significant Values  
+```{r}
+library(psych)
+describe(nsse.4_firstgen$outcomes)
+table(nsse.4_nonfirstgen$outcomes)
+str(nsse.4_firstgen)
+str(nsse.4_nonfirstgen)
+
+```
+
+```{r}
+table(nsse.4_firstgen$envstu)
+
+```
+
+
+
