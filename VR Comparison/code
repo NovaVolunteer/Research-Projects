@@ -1,0 +1,40 @@
+vr_data <- data.frame(read.csv("VR_Data2.csv"))
+str(vr_data)
+vr_data$UserType <- factor(vr_data$UserType,levels = c("mobile","vr"),labels=c("mobile","vr"))
+
+vr_out <- data.frame(boxplot(vr_data$delta_hr))
+dim(vr_out)
+View(vr_out)
+
+#The goal of this research is to identify if those that used the vr version of a meditation treatment 
+during a break period as compared to a mobile version of the paced breathing exercise experienced 
+greater reductions in heartrate readings durning the treatment. 
+
+#H1 Significant differences are present in terms of heartrate reduction for those the used the VR when compared to the mobile app for paced breathing excerises. 
+
+#H0 No significant differences are present in terms of heartrate reduction for those the used the VR when 
+compared to the mobile app for paced breathing excerises. 
+
+#First lets just look at some basic stats between the two groups and then we are going to use a simple t-test to 
+compared group average differences in heartrate. 
+
+#Start by splitting the dataframe just for ease of analysis. 
+#Split our data.frame, seems to work better when we pull out the splitting term from the original data.frame
+split <- as.factor(vr_data$UserType)
+#run the split
+split_vr_data <- split.data.frame(vr_data,split)
+
+#Re-index the data.frame for vr
+vr <- data.frame(split_vr_data$vr)
+#Re-index the data.frame for mobile
+mobile <- data.frame(split_vr_data$mobile)
+str(vr)
+View(mobile)
+str(mobile)
+sum(mobile$delta_hr)
+dim(mobile)
+describe(vr)
+describe(mobile)
+#Just at first glance it looks like on average the VR does reduce the heartrate when compared to the mobile app, 
+which actually appears to increase participants heartrate on average.
+The users spent about the same amount of time at 199.36 seconds per session for VR and 196.45 for mobile. 
